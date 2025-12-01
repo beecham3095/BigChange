@@ -1,0 +1,7 @@
+{
+  "name": "Fairway Finder",
+  "description": "Find the nearest golf driving ranges based on your current location using Gemini Maps Grounding.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
