@@ -27,8 +27,20 @@ export interface GroundingMetadata {
   };
 }
 
+export interface GolfLocation {
+  name: string;
+  latitude: number;
+  longitude: number;
+  rating: number;
+  reviewCount?: number;
+  priceLevel: string; // e.g. "$", "$$", "$$$"
+  address: string;
+  description: string;
+  distance: string; // e.g. "2.5 miles"
+}
+
 export interface DrivingRangeResult {
-  text: string;
+  locations: GolfLocation[];
   groundingMetadata?: GroundingMetadata;
 }
 

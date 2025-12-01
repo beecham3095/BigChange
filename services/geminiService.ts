@@ -1,15 +1,34 @@
 import { GoogleGenAI } from "@google/genai";
-import { Coordinates, DrivingRangeResult } from "../types";
+import { Coordinates, DrivingRangeResult, GolfLocation } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const findNearestDrivingRanges = async (coords: Coordinates): Promise<DrivingRangeResult> => {
   try {
-    // We use gemini-2.5-flash as recommended for general tasks and efficiency.
-    // We use the googleMaps tool to ground the response in real-world location data.
+    // We use gemini-2.5-flash for speed and tool capability.
+    // NOTE: When using googleMaps tool, we CANNOT use responseMimeType: "application/json".
+    // We must ask for JSON in the prompt and parse the text response.
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: "Find the nearest top-rated golf driving ranges to my location. List at least 3 if possible. For each, give me the name, a very brief description of facilities (like if they have Toptracer, heated bays, etc), and the rating.",
+      contents: `Find the 5 nearest and best golf driving ranges to my current location.
+      
+      CRITICAL: You must RANK these results using the following weighted formula:
+      1. Proximity (Distance) - Highest Priority
+      2. Rating (Quality) - Medium Priority
+      3. Price (Affordability) - Low Priority
+      
+      You must Output the result as a raw JSON array of objects. Do not use Markdown code blocks.
+      Each object must match this structure exactly:
+      {
+        "name": "string",
+        "latitude": number,
+        "longitude": number,
+        "rating": number,
+        "priceLevel": "string ($ to $$$)",
+        "address": "string",
+        "description": "string",
+        "distance": "string"
+      }`,
       config: {
         tools: [{ googleMaps: {} }],
         toolConfig: {
@@ -23,11 +42,32 @@ export const findNearestDrivingRanges = async (coords: Coordinates): Promise<Dri
       }
     });
 
-    const text = response.text || "No details found.";
-    const groundingMetadata = response.candidates?.[0]?.groundingMetadata as any; // Cast to any to map to our internal simplified type if needed, but the structure matches largely.
+    let jsonString = response.text || "[]";
+    
+    // Clean up potential markdown formatting if the model ignores the "raw JSON" instruction
+    if (jsonString.includes("```")) {
+      jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "");
+    }
+    
+    // Extract the array part if there is conversational text around it
+    const firstBracket = jsonString.indexOf('[');
+    const lastBracket = jsonString.lastIndexOf(']');
+    if (firstBracket !== -1 && lastBracket !== -1) {
+      jsonString = jsonString.substring(firstBracket, lastBracket + 1);
+    }
+
+    let locations: GolfLocation[] = [];
+    try {
+      locations = JSON.parse(jsonString);
+    } catch (e) {
+      console.error("Failed to parse JSON from Gemini response:", jsonString);
+      locations = [];
+    }
+
+    const groundingMetadata = response.candidates?.[0]?.groundingMetadata as any;
 
     return {
-      text,
+      locations,
       groundingMetadata
     };
   } catch (error) {

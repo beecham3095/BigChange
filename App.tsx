@@ -54,11 +54,7 @@ const App: React.FC = () => {
 
   // Initial trigger
   useEffect(() => {
-    // We don't auto-trigger to let user read the landing text, 
-    // but typically web apps might auto-trigger. 
-    // Let's auto-trigger for better UX if the user has already granted permission previously,
-    // otherwise show the landing state.
-    // For this demo, let's keep it manual start to show the nice UI state.
+    // We don't auto-trigger to let user read the landing text.
   }, []);
 
   return (
@@ -117,10 +113,10 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
               <h2 className="text-xl font-semibold text-gray-800">
-                {status === AppStatus.REQUESTING_LOCATION ? "Acquiring Location..." : "Scouting nearby ranges..."}
+                {status === AppStatus.REQUESTING_LOCATION ? "Acquiring Location..." : "Ranked Search in progress..."}
               </h2>
               <p className="text-gray-500 text-sm">
-                {status === AppStatus.REQUESTING_LOCATION ? "Please allow location access." : "Consulting Gemini with Google Maps..."}
+                {status === AppStatus.REQUESTING_LOCATION ? "Please allow location access." : "Applying formula: 50% Distance • 30% Rating • 20% Price"}
               </p>
             </div>
           )}
@@ -145,7 +141,7 @@ const App: React.FC = () => {
           {/* SUCCESS STATE */}
           {status === AppStatus.SUCCESS && data && (
             <div className="w-full animate-in slide-in-from-bottom-4 duration-500">
-              <ResultsView data={data} />
+              <ResultsView data={data} userLocation={coords} />
             </div>
           )}
         </div>

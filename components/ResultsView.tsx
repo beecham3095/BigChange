@@ -1,82 +1,94 @@
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
-import { DrivingRangeResult, GroundingChunk } from '../types';
+import { DrivingRangeResult, GolfLocation, Coordinates } from '../types';
 import { NavigateIcon, MapPinIcon } from './Icons';
+import { MapView } from './MapView';
 
 interface ResultsViewProps {
   data: DrivingRangeResult;
+  userLocation: Coordinates | null;
 }
 
-export const ResultsView: React.FC<ResultsViewProps> = ({ data }) => {
-  const { text, groundingMetadata } = data;
-  const chunks = groundingMetadata?.groundingChunks || [];
-
-  // Filter out chunks that are map locations to display as cards/buttons
-  const mapLocations = chunks.filter(c => c.maps?.uri);
+export const ResultsView: React.FC<ResultsViewProps> = ({ data, userLocation }) => {
+  const { locations, groundingMetadata } = data;
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-8">
+    <div className="w-full max-w-2xl mx-auto space-y-6">
       
-      {/* AI Summary Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-        <h2 className="text-sm font-semibold text-green-600 uppercase tracking-wider mb-4">Gemini Analysis</h2>
-        <div className="prose prose-green prose-p:text-gray-600 prose-headings:text-gray-800 max-w-none">
-          <ReactMarkdown>{text}</ReactMarkdown>
-        </div>
+      {/* Map Section */}
+      <MapView locations={locations} userLocation={userLocation} />
+
+      {/* Ranking Explanation */}
+      <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-xs text-green-800 flex items-center justify-center gap-2">
+        <span className="font-bold uppercase tracking-wider">Sorting Formula:</span>
+        <span>50% Distance + 30% Rating + 20% Price</span>
       </div>
 
-      {/* Locations Cards Section */}
-      {mapLocations.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800 px-1 flex items-center gap-2">
-            <MapPinIcon className="w-5 h-5 text-green-600" />
-            Detected Locations
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-1">
-            {mapLocations.map((chunk: GroundingChunk, idx) => {
-              if (!chunk.maps) return null;
-              
-              const title = chunk.maps.title || "Unknown Location";
-              const uri = chunk.maps.uri;
-              const reviewSnippet = chunk.maps.placeAnswerSources?.reviewSnippets?.[0]?.content;
+      {/* Locations List */}
+      <div className="space-y-4">
+        {locations.map((loc, idx) => {
+          // Construct a Google Maps search URL as a fallback or primary link
+          const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${loc.name} ${loc.address}`)}`;
+          
+          return (
+            <a 
+              key={idx}
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-green-400 hover:shadow-md transition-all duration-200 relative overflow-hidden"
+            >
+              {/* Rank Badge */}
+              <div className="absolute top-0 right-0 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                #{idx + 1}
+              </div>
 
-              return (
-                <a 
-                  key={idx}
-                  href={uri}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group block bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-green-400 hover:shadow-md transition-all duration-200"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-900 group-hover:text-green-700 transition-colors">
-                        {title}
-                      </h4>
-                      {reviewSnippet && (
-                        <p className="text-sm text-gray-500 mt-2 line-clamp-2 italic">
-                          "{reviewSnippet}"
-                        </p>
-                      )}
+              <div className="flex items-start justify-between pr-8">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="font-bold text-lg text-gray-900 group-hover:text-green-700 transition-colors">
+                      {loc.name}
+                    </h4>
+                  </div>
+                  
+                  {/* Stats Row */}
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                    <div className="flex items-center gap-1 text-yellow-600 font-medium">
+                      <span>★</span> {loc.rating}
                     </div>
-                    <div className="ml-4 flex-shrink-0 bg-green-50 p-2 rounded-full group-hover:bg-green-100 text-green-600 transition-colors">
-                      <NavigateIcon className="w-5 h-5" />
+                    <div className="text-gray-400">•</div>
+                    <div className="text-green-700 font-medium">
+                      {loc.priceLevel || "$$"}
+                    </div>
+                    <div className="text-gray-400">•</div>
+                    <div className="flex items-center gap-1">
+                      <MapPinIcon className="w-3 h-3" />
+                      {loc.distance || "Unknown dist"}
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center text-xs font-medium text-green-600">
-                    Open in Google Maps &rarr;
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      )}
+
+                  <p className="text-sm text-gray-500 line-clamp-2">
+                    {loc.description}
+                  </p>
+                  
+                  <p className="text-xs text-gray-400 mt-2 font-mono">
+                    {loc.address}
+                  </p>
+                </div>
+              </div>
+            </a>
+          );
+        })}
+      </div>
 
       {/* Footer attribution */}
-      <div className="text-center text-xs text-gray-400 py-4">
-        Results provided by Gemini with Google Maps Grounding
-      </div>
+      {groundingMetadata && (
+        <div className="text-center text-xs text-gray-400 py-4 border-t border-gray-100 mt-8">
+          <p>Results ranked by Gemini. Location data grounded by Google Maps.</p>
+          {groundingMetadata.searchEntryPoint?.renderedContent && (
+             <div dangerouslySetInnerHTML={{ __html: groundingMetadata.searchEntryPoint.renderedContent }} />
+          )}
+        </div>
+      )}
     </div>
   );
 };
